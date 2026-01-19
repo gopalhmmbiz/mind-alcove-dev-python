@@ -8,10 +8,6 @@ class Settings(BaseSettings):
     env: str = Field(default="development")
     debug: bool = Field(default=False)
 
-    # Server
-    host: str = Field(default="127.0.0.1")
-    port: int = Field(default=8000)
-
     # Database
     db_host: str = Field(default="localhost")
     db_port: int = 3306

@@ -6,6 +6,10 @@ from app.core.responses import ErrorResponse
 
 
 async def auth_middleware(request: Request, call_next):
+    # Skip auth for health check
+    if request.url.path == "/api/health":
+        return await call_next(request)
+
     # Check for static API key in headers
     secret_from_header = request.headers.get("x-api-key")
 
