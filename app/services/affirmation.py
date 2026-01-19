@@ -19,9 +19,9 @@ async def generate_affirmations_service(
     # Prepare user message
     formatted_user_message = USER_MESSAGE_TEMPLATE.format(
         user_goal=payload.user_goal,
-        overall_goal=payload.overall_goal,
         mood=payload.mood,
         emotion=payload.emotion,
+        life_factor=payload.life_factor,
     )
 
     messages = [
@@ -33,11 +33,9 @@ async def generate_affirmations_service(
     structured_llm = llm.with_structured_output(Affirmations)
 
     # Invoke model asynchronously
-    response = await structured_llm.ainvoke(messages)
+    response: Affirmations = await structured_llm.ainvoke(messages)
 
     # Map structured output to API response
     return AffirmationResponse(
-        affirmation_one=response.affirmation_one,
-        affirmation_two=response.affirmation_two,
-        affirmation_three=response.affirmation_three,
+        affirmations=[affirmation.text for affirmation in response.affirmations],
     )

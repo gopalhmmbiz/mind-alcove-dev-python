@@ -1,15 +1,11 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class AffirmationRequest(BaseModel):
     user_goal: str = Field(
         ...,
         description="Short-term goal the user wants to work on using affirmations"
-    )
-    overall_goal: str = Field(
-        "Not Available",
-        description="User's long-term intention for using the app"
     )
     mood: str = Field(
         "Not Available",
@@ -18,9 +14,11 @@ class AffirmationRequest(BaseModel):
     emotion: Optional[str] = Field(
         "Not Available",
         description="User's current specific emotion"
+    ),
+    life_factor: str = Field(
+        "Not Available",
+        description="Life factor for user's recent overall mood"
     )
 
 class AffirmationResponse(BaseModel):
-    affirmation_one: str
-    affirmation_two: str
-    affirmation_three: str
+    affirmations: List[str]
