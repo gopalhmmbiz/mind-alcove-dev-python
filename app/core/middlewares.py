@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.core.responses import ErrorResponse
 
-
+# Not in use
 async def auth_middleware(request: Request, call_next):
     # Skip auth for health check
     if request.url.path == "/api/health":

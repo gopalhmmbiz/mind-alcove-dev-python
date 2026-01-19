@@ -28,5 +28,4 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
-app.middleware("http")(auth_middleware)
 app.include_router(router)
