@@ -1,6 +1,7 @@
+from langchain.chat_models import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage
 
-from app.ai.models import llm
+from app.ai.models import FAST
 from app.ai.prompts.affirmation import SYSTEM_MESSAGE, USER_MESSAGE_TEMPLATE
 from app.ai.structured_outputs.affirmation import Affirmations
 from app.api.schemas.affirmation import (
@@ -28,6 +29,9 @@ async def generate_affirmations_service(
         SystemMessage(SYSTEM_MESSAGE),
         HumanMessage(formatted_user_message),
     ]
+
+    # Define the LLM model
+    llm = init_chat_model(FAST, temperature=0.95)
 
     # Bind structured output
     structured_llm = llm.with_structured_output(Affirmations)
