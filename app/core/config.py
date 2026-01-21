@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -25,6 +28,12 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str
+
+    # Langsmith
+    langsmith_tracing: bool = False
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+    langsmith_api_key: str = "your_langsmith_api_key"
+    langsmith_project: str = "Default"
 
     class Config:
         env_file = ".env"
