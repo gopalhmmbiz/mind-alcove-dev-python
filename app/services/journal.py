@@ -36,4 +36,4 @@ async def generate_journal_suggestion_service(
 
     response: JournalSuggestion = await structured_llm.ainvoke(messages)
 
-    return JournalSuggestionResponse(suggestion=response.suggestion)
+    return JournalSuggestionResponse(title=response.title, suggestion=response.suggestion)

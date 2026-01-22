@@ -26,6 +26,10 @@ class JournalSuggestionRequest(BaseModel):
 
 
 class JournalSuggestionResponse(BaseModel):
+    title: str = Field(
+        ...,
+        description="The title of the journal",
+    )
     suggestion: str = Field(
         ...,
         description="A single AI-generated journal guidance suggestion",
