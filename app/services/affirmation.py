@@ -10,6 +10,17 @@ from app.api.schemas.affirmation import (
 )
 
 
+# Define the LLM model
+_llm = init_chat_model(
+    FAST,
+    temperature=0.5,
+    timeout=15,
+    max_retries=3
+)
+
+# Bind structured output
+_structured_llm = _llm.with_structured_output(Affirmations)
+
 async def generate_affirmations_service(
     payload: AffirmationRequest,
 ) -> AffirmationResponse:
@@ -19,10 +30,7 @@ async def generate_affirmations_service(
 
     # Prepare user message
     formatted_user_message = USER_MESSAGE_TEMPLATE.format(
-        user_goal=payload.user_goal,
-        mood=payload.mood,
-        emotion=payload.emotion,
-        life_factor=payload.life_factor,
+        user_goal=payload.user_goal
     )
 
     messages = [
@@ -30,14 +38,8 @@ async def generate_affirmations_service(
         HumanMessage(formatted_user_message),
     ]
 
-    # Define the LLM model
-    llm = init_chat_model(FAST, temperature=0.95)
-
-    # Bind structured output
-    structured_llm = llm.with_structured_output(Affirmations)
-
     # Invoke model asynchronously
-    response: Affirmations = await structured_llm.ainvoke(messages)
+    response: Affirmations = await _structured_llm.ainvoke(messages)
 
     # Map structured output to API response
     return AffirmationResponse(
