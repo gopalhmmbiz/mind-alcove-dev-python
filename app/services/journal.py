@@ -10,6 +10,16 @@ from app.api.schemas.journal import (
 )
 
 
+# Define the LLM model
+_llm = init_chat_model(
+    SMART,
+    temperature=0.7,
+    timeout=15,
+    max_retries=3
+)
+
+_structured_llm = _llm.with_structured_output(JournalSuggestion)
+
 async def generate_journal_suggestion_service(
     payload: JournalSuggestionRequest,
 ) -> JournalSuggestionResponse:
@@ -18,10 +28,7 @@ async def generate_journal_suggestion_service(
     """
 
     formatted_user_message = USER_MESSAGE.format(
-        journal_text=payload.journal_text,
-        mood=payload.mood,
-        emotion=payload.emotion,
-        life_factor=payload.life_factor,
+        journal_text=payload.journal_text
     )
 
     messages = [
@@ -29,11 +36,6 @@ async def generate_journal_suggestion_service(
         HumanMessage(formatted_user_message),
     ]
 
-    # Define the LLM model
-    llm = init_chat_model(SMART, temperature=0.9)
-
-    structured_llm = llm.with_structured_output(JournalSuggestion)
-
-    response: JournalSuggestion = await structured_llm.ainvoke(messages)
+    response: JournalSuggestion = await _structured_llm.ainvoke(messages)
 
     return JournalSuggestionResponse(title=response.title, suggestion=response.suggestion)

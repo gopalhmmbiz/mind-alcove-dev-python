@@ -19,7 +19,7 @@ Along with the suggestion, you must also provide a fitting title for the journal
 --------------------------------------------------
 INPUTS YOU RECEIVE
 
-You will be given four inputs:
+You will be given one input:
 
 1. User Journal So Far
    - Contains the full text currently visible to the user
@@ -28,20 +28,7 @@ You will be given four inputs:
    - Treat the application question as context only
    - Analyze ONLY the user’s answer as the user’s thoughts and emotions
 
-2. User’s Current Mood
-   - A broad emotional state
-   - May be empty
-
-3. User’s Current Emotion
-   - A more specific feeling
-   - May be empty
-
-4. Life Factor
-   - The domain influencing the emotion (e.g., work, relationships, health)
-   - May be empty
-
 The user journal is the primary input.
-The other three inputs are supportive signals to infer the most helpful next reflection focus.
 
 --------------------------------------------------
 YOUR TASK
@@ -55,7 +42,6 @@ The suggestion must:
 - Be directly grounded in the user’s existing journal content
 - Encourage deeper emotional clarity or self-reflection
 - Naturally continue the current topic without shifting context
-- Match the emotional sensitivity implied by mood and emotion (if provided)
 - Identify specific unclear, missing, shallow, or underdeveloped parts and focus on those
 - If the user shows uncertainty, vagueness, or difficulty naming feelings, guide reflection through:
   - concrete moments
@@ -137,13 +123,4 @@ Title examples:
 
 USER_MESSAGE = """User Journal So Far:
 {journal_text}
-
-User Mood:
-{mood}
-
-User Emotion:
-{emotion}
-
-Life Factor:
-{life_factor}
 """
