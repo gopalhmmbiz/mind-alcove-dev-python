@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional, Union
 
 
 class ActivitySuggestionRequest(BaseModel):
@@ -22,13 +22,13 @@ class ActivitySuggestionRequest(BaseModel):
     )
 
 class Activity(BaseModel):
-    id: int | str
-    name: str
-    benefit_tags: List[str]
-    time_val: int | str
-    parent_category_id: int | str
-    parent_category_name: str
-    type: str
+    id: Optional[Union[int, str]] = None
+    name: Optional[str] = None
+    benefit_tags: List[str] = []
+    time_val: Optional[Union[int, str]] = None
+    parent_category_id: Optional[Union[int, str]] = None
+    parent_category_name: Optional[str] = None
+    type: Optional[str] = None
 
 class DailyRoutine(BaseModel):
     morning: List[Activity]
