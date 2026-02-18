@@ -3,23 +3,11 @@ from typing import List, Optional, Union
 
 
 class ActivitySuggestionRequest(BaseModel):
-    user_id: int | str
-    user_mood: str = Field(
-        ...,
-        description="current mood of the user"
-    )
-    user_goal: str = Field(
-        ...,
-        description="overall goal of the user"
-    )
-    routine_length: str = Field(
-        ...,
-        description="preferred routine length of the user"
-    )
-    is_premium: bool | int = Field(
-        ...,
-        description="flag whether the user is premium or not"
-    )
+    user_id: Union[int, str]
+    user_mood: Optional[str] = None
+    user_goal: Optional[str] = None
+    routine_length: Optional[str] = None
+    is_premium: Optional[Union[bool, int]] = 0
 
 class Activity(BaseModel):
     id: Optional[Union[int, str]] = None

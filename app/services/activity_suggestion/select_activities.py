@@ -56,7 +56,10 @@ def get_activity_suggestions(
     try:
         response: DailyRoutine = _structured_llm.invoke(messages)
         state["activity_routine"] = response
+        return {
+            "activity_routine": response
+        }
     except Exception as e:
-        state["errors"].append(str(e))
-
-    return state
+        return {
+            "errors": f"An error occurred: {str(e)}"
+        }
