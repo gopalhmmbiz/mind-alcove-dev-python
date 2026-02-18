@@ -83,7 +83,7 @@ async def filter_non_premium_activities(activities: List[Dict[str, Any]]) -> Lis
     return non_premium_activities
 
 
-async def get_activity_suggestion(data: ActivitySuggestionRequest, db: AsyncSession = Depends(get_db)) -> ActivitySuggestionResponse:
+async def generate_activity_routine(data: ActivitySuggestionRequest, db: AsyncSession = Depends(get_db)) -> ActivitySuggestionResponse:
     # profile_str = await get_activity_profile(db, data.user_id)
     # if profile_str is None:
     #     raise AppException(
