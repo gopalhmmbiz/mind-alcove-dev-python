@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes import health
 from app.api.routes import affirmation
 from app.api.routes import journal
+from app.api.routes import activity_suggestion
 
 router = APIRouter(prefix="/api")
 
@@ -10,3 +11,4 @@ router = APIRouter(prefix="/api")
 router.include_router(health.router)
 router.include_router(affirmation.router)
 router.include_router(journal.router)
+router.include_router(activity_suggestion.router)
