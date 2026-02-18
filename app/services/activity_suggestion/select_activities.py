@@ -1,12 +1,7 @@
-import csv
-from io import StringIO
-from typing import List, Dict, Any
-
 from langchain.chat_models import init_chat_model
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.ai.models import SMART
-from app.ai.structured_outputs.activity_suggestion.reconcile_patterns import BehavioralObservation, UserDynamicProfile
 from app.ai.structured_outputs.activity_suggestion.select_activities import DailyRoutine
 from app.ai.prompts.activity_suggeston.select_activities import SYSTEM_MESSAGE, USER_MESSAGE
 
