@@ -74,7 +74,7 @@ def _format_activity_data(raw_data):
     return formatted_list, mapping_dict
 
 
-async def filter_non_premium_activities(activities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+async def _filter_non_premium_activities(activities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     non_premium_activities = []
     for activity in activities:
         if activity.get("is_premium"):      # we usually get 1 or 0 in "is_premium" field
@@ -100,7 +100,7 @@ async def generate_activity_routine(data: ActivitySuggestionRequest, db: AsyncSe
 
     activity_list = await _get_activity_library()
     if not data.is_premium:
-        activity_list = await filter_non_premium_activities(activity_list)
+        activity_list = await _filter_non_premium_activities(activity_list)
     clean_acitvity_list, original_mapping = _format_activity_data(activity_list)
 
     state = RecommendationState(

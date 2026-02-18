@@ -16,7 +16,7 @@ class ActivitySuggestionRequest(BaseModel):
         ...,
         description="preferred routine length of the user"
     )
-    is_premium: bool = Field(
+    is_premium: bool | int = Field(
         ...,
         description="flag whether the user is premium or not"
     )
