@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from dotenv import load_dotenv
 
@@ -38,10 +38,11 @@ class Settings(BaseSettings):
     # Laravel service
     activity_list_endpoint: str = 'https://mindalcove.yourcloudnetwork.net/storage/ai-sync/ai-sync.json'
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        extra = 'ignore'
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore"
+    )
 
 
 settings = Settings()
