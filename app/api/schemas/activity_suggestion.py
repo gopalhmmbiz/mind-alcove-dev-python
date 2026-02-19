@@ -18,10 +18,14 @@ class Activity(BaseModel):
     parent_category_name: Optional[str] = None
     type: Optional[str] = None
 
+class JournalPrompt(BaseModel):
+    type: str = 'daily_journal_prompts'
+    prompts: Optional[List[str]] = []
+
 class DailyRoutine(BaseModel):
-    morning: List[Activity]
-    afternoon: List[Activity]
-    evening: List[Activity]
+    morning: List[Union[Activity, JournalPrompt]] = []
+    afternoon: List[Union[Activity, JournalPrompt]] = []
+    evening: List[Union[Activity, JournalPrompt]] = []
 
 class ActivitySuggestionResponse(BaseModel):
     routine: DailyRoutine
