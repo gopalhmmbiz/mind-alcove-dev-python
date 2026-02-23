@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     db_user: str
     db_password: str
 
+    # Cache
+    cache_type: str = Field(default="memory")
+
     # Redis
     redis_host: str = Field(default="localhost")
     redis_port: int = 6379

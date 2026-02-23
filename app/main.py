@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.cache.factory import CacheService
 from app.core.config import settings
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middlewares import auth_middleware
@@ -14,10 +15,12 @@ async def lifespan(app: FastAPI):
     try:
         # STARTUP
         await init_db()
+        CacheService.initialize()
         yield
     finally:
         # SHUTDOWN
         await close_db()
+        await CacheService.close()
 
 
 app = FastAPI(
