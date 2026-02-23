@@ -36,20 +36,25 @@ class RateLimiter:
         self.seconds = seconds
 
     async def __call__(self, request: Request):
-        cache = get_cache()
-
-        # 1. Identify User (Using 'X-User-ID')
+        # 1. Identify User (Strictly requires X-User-ID)
         user_id = request.headers.get("X-User-ID")
 
-        # 2. Create a unique key for this user + this endpoint
-        path = request.url.path
-        key = f"rate_limit:{user_id}:{path}"
+        if not user_id:
+            raise AppException(
+                status_code=400,
+                message="User identification header (X-User-ID) is required for this endpoint."
+            )
 
-        # 3. Increment the counter
-        # Our increment method is atomic (crucial for concurrency)
+        cache = get_cache()
+
+        # 2. Create a unique key
+        path = request.url.path
+        key = f"rl:{user_id}:{path}"
+
+        # 3. Increment the counter (Atomic)
         current_hits = await cache.increment(key)
 
-        # 4. If this is the first hit in the window, set the expiration
+        # 4. Set TTL on the very first hit
         if current_hits == 1:
             await cache.set(key, current_hits, ttl=self.seconds)
 
@@ -57,5 +62,5 @@ class RateLimiter:
         if current_hits > self.times:
             raise AppException(
                 status_code=429,
-                message=f"Request Limit exceeded. Maximum {self.times} requests per {self.seconds}s."
+                message=f"Take a breath! Limit exceeded. Maximum {self.times} requests per {self.seconds}s."
             )
