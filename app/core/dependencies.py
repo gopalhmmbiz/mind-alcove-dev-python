@@ -1,4 +1,8 @@
 # core/security/api_key.py
+import hmac
+import hashlib
+import time
+
 from fastapi import Security, Request
 from fastapi.security import APIKeyHeader
 
@@ -11,6 +15,7 @@ api_key_header = APIKeyHeader(
     auto_error=False,
 )
 
+# not in use
 async def require_secret_key(api_key: str = Security(api_key_header)) -> None:
     if not api_key:
         raise AppException(
@@ -23,6 +28,38 @@ async def require_secret_key(api_key: str = Security(api_key_header)) -> None:
             message="Invalid API key",
             status_code=403,
         )
+
+
+timestamp_header = APIKeyHeader(name="X-Timestamp", auto_error=False)
+signature_header = APIKeyHeader(name="X-Signature", auto_error=False)
+
+async def verify_signature(
+    timestamp: str = Security(timestamp_header),
+    signature: str = Security(signature_header)
+) -> None:
+    # 1. Check if headers exist
+    if not timestamp:
+        raise AppException(status_code=401, message="Missing timestamp in header.")
+    if not signature:
+        raise AppException(status_code=401, message="Missing signature in header.")
+
+    # 2. Check expiration timestamp valid or not
+    try:
+        time_diff = abs(int(time.time()) - int(timestamp))
+        if time_diff > settings.s2s_token_ttl:
+            raise AppException(status_code=401, message="Request expired")
+    except ValueError:
+        raise AppException(status_code=400, message="Invalid timestamp format")
+
+    # 3. verify the signature and compare
+    expected_signature = hmac.new(
+        settings.secret_key.encode(),
+        timestamp.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(signature, expected_signature):
+        raise AppException(status_code=403, message="Invalid signature")
 
 
 class RateLimiter:

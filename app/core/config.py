@@ -31,6 +31,7 @@ class Settings(BaseSettings):
 
     # Security
     secret_key: str
+    s2s_token_ttl: int = 300
 
     # Langsmith
     langsmith_tracing: bool = False
