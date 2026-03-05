@@ -7,6 +7,9 @@ class JournalSuggestionRequest(BaseModel):
         description="Full journal text including the app question(s) and user answer(s).",
         min_length=1,
     )
+    user_id: int = Field(
+        description="The ID of the user who made the request",
+    )
 
 
 class JournalSuggestionResponse(BaseModel):

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 
 from app.api.schemas.journal import (
     JournalSuggestionRequest,
@@ -19,6 +19,10 @@ router = APIRouter()
 )
 async def generate_journal_suggestion(
     payload: JournalSuggestionRequest,
+    background_tasks: BackgroundTasks,
 ) -> SuccessResponse[JournalSuggestionResponse]:
-    data = await generate_journal_suggestion_service(payload)
+    data = await generate_journal_suggestion_service(
+        payload=payload,
+        background_tasks=background_tasks
+    )
     return SuccessResponse(data=data)

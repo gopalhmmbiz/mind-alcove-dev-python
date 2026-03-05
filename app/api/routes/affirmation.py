@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 
 from app.api.schemas.affirmation import (
     AffirmationRequest,
@@ -19,6 +19,15 @@ router = APIRouter()
 )
 async def generate_affirmations(
     payload: AffirmationRequest,
+    background_tasks: BackgroundTasks,
 ) -> SuccessResponse[AffirmationResponse]:
-    data = await generate_affirmations_service(payload)
+    """
+    Endpoint to trigger AI affirmation generation.
+    """
+
+    data = await generate_affirmations_service(
+        payload=payload,
+        background_tasks=background_tasks
+    )
+
     return SuccessResponse(data=data)
