@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from app.cache.factory import CacheService
 from app.core.config import settings
 from app.core.exception_handlers import register_exception_handlers
-from app.core.middlewares import auth_middleware
+from app.core.middlewares import request_id_middleware
 from app.db.session import init_db, close_db
 from app.api.router import router
 
@@ -29,6 +29,9 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
     lifespan=lifespan,
 )
+
+# Middlewares
+app.middleware("http")(request_id_middleware)
 
 register_exception_handlers(app)
 app.include_router(router)
