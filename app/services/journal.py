@@ -1,6 +1,7 @@
 from fastapi import BackgroundTasks
 from langchain.chat_models import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage
+from loguru import logger
 
 from app.ai.models import SMART
 from app.ai.prompts.journal.suggestion import SYSTEM_MESSAGE, USER_MESSAGE
@@ -51,6 +52,10 @@ async def generate_journal_suggestion_service(
         parsed_output: JournalSuggestion = response["parsed"]
         raw_message = response["raw"]
 
+        # Track Unusual: LLM succeeded but returned empty or incomplete structured data
+        if not parsed_output or not parsed_output.title or not parsed_output.suggestion:
+            logger.warning(f"Unusual: LLM returned incomplete journal suggestion for User: {user_id}")
+
         # Extract token usage
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
 
@@ -70,6 +75,9 @@ async def generate_journal_suggestion_service(
         return JournalSuggestionResponse(title=parsed_output.title, suggestion=parsed_output.suggestion)
 
     except Exception as e:
+        # CRITICAL: Log the full traceback for debugging on VPS
+        logger.exception(f"Journal Suggestion Service Error | User: {user_id} | {str(e)}")
+
         await log_llm_event({
             "request_id": request_id,
             "user_id": user_id,

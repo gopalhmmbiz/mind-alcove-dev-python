@@ -1,6 +1,7 @@
 from fastapi import BackgroundTasks
 from langchain.chat_models import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage
+from loguru import logger
 
 from app.ai.models import FAST
 from app.ai.prompts.affirmation import SYSTEM_MESSAGE, USER_MESSAGE_TEMPLATE
@@ -51,6 +52,10 @@ async def generate_affirmations_service(
         parsed_output: Affirmations = response["parsed"]
         raw_message = response["raw"]
 
+        # Track Unusual: LLM succeeded but returned an empty result
+        if not parsed_output or not parsed_output.affirmations:
+            logger.warning(f"Unusual: LLM returned successful status but 0 affirmations for User: {user_id}")
+
         # Extract token usage
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
 
@@ -72,6 +77,9 @@ async def generate_affirmations_service(
         )
 
     except Exception as e:
+        # CRITICAL: Capture full traceback for debugging
+        logger.exception(f"Affirmation Service Error | User: {user_id} | {str(e)}")
+
         await log_llm_event({
             "request_id": request_id,
             "user_id": user_id,

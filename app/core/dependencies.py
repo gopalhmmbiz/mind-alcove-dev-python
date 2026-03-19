@@ -5,6 +5,7 @@ import time
 
 from fastapi import Security, Request
 from fastapi.security import APIKeyHeader
+from loguru import logger
 
 from app.cache.factory import get_cache
 from app.core.config import settings
@@ -24,6 +25,8 @@ async def require_secret_key(api_key: str = Security(api_key_header)) -> None:
         )
 
     if api_key != settings.secret_key:
+        # Unusual: Potential unauthorized probe or secret mismatch
+        logger.warning(f"Security: Invalid API key attempt.")
         raise AppException(
             message="Invalid API key",
             status_code=403,
@@ -47,8 +50,11 @@ async def verify_signature(
     try:
         time_diff = abs(int(time.time()) - int(timestamp))
         if time_diff > settings.s2s_token_ttl:
+            # Unusual: Clock drift or potential replay attempt
+            logger.warning(f"Security: Request expired. Time diff: {time_diff}s")
             raise AppException(status_code=401, message="Request expired")
     except ValueError:
+        logger.warning("Security: Invalid timestamp format received.")
         raise AppException(status_code=400, message="Invalid timestamp format")
 
     # 3. verify the signature and compare
@@ -59,9 +65,11 @@ async def verify_signature(
     ).hexdigest()
 
     if not hmac.compare_digest(signature, expected_signature):
+        # Critical Unusual: Signature mismatch (Auth failure)
+        logger.warning("Security: Invalid signature provided.")
         raise AppException(status_code=403, message="Invalid signature")
 
-
+# Not in use
 class RateLimiter:
     def __init__(self, times: int, seconds: int):
         """
@@ -97,6 +105,8 @@ class RateLimiter:
 
         # 5. Check if limit exceeded
         if current_hits > self.times:
+            # Unusual: User hitting rate limits frequently
+            logger.warning(f"RateLimit: User {user_id} exceeded limit on {path}")
             raise AppException(
                 status_code=429,
                 message=f"Take a breath! Limit exceeded. Maximum {self.times} requests per {self.seconds}s."
