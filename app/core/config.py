@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # Laravel service
     activity_list_endpoint: str = 'https://mindalcove.yourcloudnetwork.net/storage/ai-sync/ai-sync.json'
 
+    # Logging
+    log_dir: str = Field(default="logs")
+    log_rotation: str = Field(default="00:00")
+    log_retention: str = Field(default="15 days")
+    log_level: str = Field(default="INFO")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,

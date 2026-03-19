@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.cache.factory import CacheService
 from app.core.config import settings
+from app.core.logging import setup_logging
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middlewares import request_id_middleware
 from app.db.session import init_db, close_db
@@ -15,13 +16,17 @@ async def lifespan(app: FastAPI):
     try:
         # STARTUP
         await init_db()
-        CacheService.initialize()
+        # For now cache is not required.
+        # CacheService.initialize()
         yield
     finally:
         # SHUTDOWN
         await close_db()
-        await CacheService.close()
+        # await CacheService.close()
 
+
+# set up the logger
+setup_logging()
 
 app = FastAPI(
     title=settings.app_name,
