@@ -5,7 +5,7 @@ from loguru import logger
 
 from app.ai.models import SMART
 from app.ai.prompts.journal.suggestion import SYSTEM_MESSAGE, USER_MESSAGE
-from app.ai.structured_outputs.journal import JournalSuggestion
+from app.ai.structured_outputs.journal.suggestion import JournalSuggestion
 from app.api.schemas.journal import (
     JournalSuggestionRequest,
     JournalSuggestionResponse,
