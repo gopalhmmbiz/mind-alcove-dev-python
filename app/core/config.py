@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     langsmith_project: str = "Default"
 
     # Laravel service
+    laravel_base_url: str = 'https://mindalcove.yourcloudnetwork.net'
     activity_list_endpoint: str = 'https://mindalcove.yourcloudnetwork.net/storage/ai-sync/ai-sync.json'
 
     # Logging
