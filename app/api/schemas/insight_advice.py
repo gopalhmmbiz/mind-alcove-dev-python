@@ -32,8 +32,10 @@ class MoodAdviceRequest(BaseModel):
     startDate: str = Field(..., description="Start date of the mood tracking period")
     endDate: str = Field(..., description="End date of the mood tracking period")
 
+class MoodInsight(BaseModel):
+    mood_id: int
+    mood: str
+    insight: str
+
 class MoodAdviceResponse(BaseModel):
-    advice: str = Field(
-        ...,
-        description="The AI-generated, non-clinical advice (approx. 35 words)"
-    )
+    insights: List[MoodInsight]

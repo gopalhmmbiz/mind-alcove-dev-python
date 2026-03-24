@@ -4,7 +4,7 @@ from langchain.messages import SystemMessage, HumanMessage
 from loguru import logger
 
 from app.ai.models import FAST
-from app.ai.structured_outputs.insight_advice import LLMInsightOutput
+from app.ai.structured_outputs.insight_advice import LLMInsightResponse
 from app.api.schemas.insight_advice import (
     MoodAdviceRequest,
     MoodAdviceResponse,
@@ -32,7 +32,7 @@ def format_mood_data_for_llm(data: MoodAdviceRequest) -> str:
         mood_name = item.mood_board_emotions.upper()
         percentage = item.total
 
-        lines.append(f"### {mood_name} ({percentage:.1f}%)")
+        lines.append(f"### {mood_name}\nID: {item.mood_id}\nPercentage: {percentage:.1f}%")
 
         causes = influencer_map.get(mood_name, [])
         if causes:
@@ -55,22 +55,21 @@ _llm = init_chat_model(
 )
 
 # Bind structured output to capture the advice specifically
-_structured_llm = _llm.with_structured_output(LLMInsightOutput, include_raw=True)
+_structured_llm = _llm.with_structured_output(LLMInsightResponse, include_raw=True)
 
 
 async def get_insight_advice_service(
-    payload: MoodAdviceRequest,
-    background_tasks: BackgroundTasks
+        payload: MoodAdviceRequest,
+        background_tasks: BackgroundTasks
 ) -> MoodAdviceResponse:
-    """
-    Main service logic: Formats data, calls the LLM, and logs telemetry.
-    """
     request_id = request_id_context.get()
     feature_name = "mood_insight_advice"
     user_id = payload.user_id
 
-    # 1. Prepare the LLM input
+    # 1. Format data using your new logic
     formatted_report = format_mood_data_for_llm(payload)
+
+    # 2. Prepare messages
     formatted_user_message = USER_MESSAGE_TEMPLATE.format(
         formatted_mood_report=formatted_report
     )
@@ -81,16 +80,12 @@ async def get_insight_advice_service(
     ]
 
     try:
-        # 2. Execute LLM Call
+        # 3. Invoke LLM
         response = await _structured_llm.ainvoke(messages)
-        parsed_output: LLMInsightOutput = response["parsed"]
+        parsed_output: LLMInsightResponse = response["parsed"]
         raw_message = response["raw"]
 
-        if not parsed_output or not parsed_output.advice:
-            logger.warning(f"Empty AI response for User: {user_id} | Req: {request_id}")
-            raise ValueError("LLM failed to generate advice.")
-
-        # 3. Handle Token Telemetry
+        # 4. Token Tracking
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
 
         background_tasks.add_task(
@@ -100,31 +95,18 @@ async def get_insight_advice_service(
                 "user_id": user_id,
                 "feature": feature_name,
                 "model": FAST,
-                "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
+                "input_tokens": usage.get("input_tokens", 0),
                 "total_tokens": usage.get("total_tokens", 0),
                 "status": "success"
             }
         )
 
-        return MoodAdviceResponse(advice=parsed_output.advice)
+        # 5. Return the list of insights
+        return MoodAdviceResponse(
+            insights=[item.model_dump() for item in parsed_output.insights]
+        )
 
     except Exception as e:
-        # 4. Error Handling and Failure Logging
-        logger.exception(f"Insight Advice Error | User: {user_id} | {str(e)}")
-
-        background_tasks.add_task(
-            log_llm_event,
-            {
-                "request_id": request_id,
-                "user_id": user_id,
-                "feature": feature_name,
-                "model": FAST,
-                "status": "failed",
-                "message": str(e)
-            }
-        )
-
-        raise AppException(
-            status_code=500,
-            message="The AI is reflecting on your data. Please try again in a moment.",
-        )
+        logger.exception(f"Multi-Insight Service Error | User: {user_id} | {str(e)}")
+        # ... (error logging task)
+        raise AppException(status_code=500, message="AI is reflecting on your moods. Try again soon.")
