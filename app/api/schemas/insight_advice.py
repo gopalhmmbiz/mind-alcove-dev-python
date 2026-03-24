@@ -4,12 +4,12 @@ from typing import List, Optional
 class MoodCount(BaseModel):
     mood_id: int
     mood_board_emotions: str
-    total: int
+    total: float
 
 class MoodCause(BaseModel):
     title: str
     total: int
-    percent: int
+    percent: float
 
 class MoodInfluencer(BaseModel):
     mood_id: int

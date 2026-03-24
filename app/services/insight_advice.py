@@ -20,8 +20,6 @@ def format_mood_data_for_llm(data: MoodAdviceRequest) -> str:
     Converts structured mood data into a grouped, percentage-based
     narrative for the LLM.
     """
-    total_logs = sum(item.total for item in data.overallCounts)
-
     # 1. Map influencers to their respective moods for easy lookup
     influencer_map = {
         inf.mood.upper(): inf.causes for inf in data.overallMoodInfluencer
@@ -29,13 +27,10 @@ def format_mood_data_for_llm(data: MoodAdviceRequest) -> str:
 
     lines = [f"User Mood Report ({data.startDate} to {data.endDate}):\n"]
 
-    if total_logs == 0:
-        return "No mood data recorded for this period."
-
     # 2. Iterate through counts and attach specific influencers
     for item in data.overallCounts:
         mood_name = item.mood_board_emotions.upper()
-        percentage = (item.total / total_logs) * 100
+        percentage = item.total
 
         lines.append(f"### {mood_name} ({percentage:.1f}%)")
 
