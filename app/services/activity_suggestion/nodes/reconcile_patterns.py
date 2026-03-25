@@ -10,7 +10,7 @@ from app.db.models.users import UserProfile
 from app.ai.models import SMART
 from app.ai.prompts.activity_suggeston.reconcile_patterns import SYSTEM_MESSAGE, USER_MESSAGE
 from app.core.util import convert_to_csv
-from app.services.activity_suggestion.graph import RecommendationState
+from app.services.activity_suggestion.state import RecommendationState
 from app.ai.structured_outputs.activity_suggestion.reconcile_patterns import UserDynamicProfile
 
 
