@@ -66,7 +66,10 @@ async def get_insight_advice_service(
     feature_name = "mood_insight_advice"
     user_id = payload.user_id
 
-    # 1. Format data using your new logic
+    logger.info(
+        f"SERVICE START: get_insight_advice_service | User: {user_id} | Range: {payload.startDate} to {payload.endDate}")
+
+    # 1. Format data using your logic
     formatted_report = format_mood_data_for_llm(payload)
 
     # 2. Prepare messages
@@ -79,14 +82,19 @@ async def get_insight_advice_service(
         HumanMessage(content=formatted_user_message),
     ]
 
+    # Capture the full prompt for debugging
+    input_prompt_dump = "\n\n".join([f"[{msg.type.upper()}]: {msg.content}" for msg in messages])
+
     try:
         # 3. Invoke LLM
+        logger.info(f"Invoking LLM for mood insights | Model: {FAST} | User: {user_id}")
         response = await _structured_llm.ainvoke(messages)
         parsed_output: LLMInsightResponse = response["parsed"]
         raw_message = response["raw"]
 
         # 4. Token Tracking
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
+        total_tokens = usage.get("total_tokens", 0)
 
         background_tasks.add_task(
             log_llm_event,
@@ -95,11 +103,15 @@ async def get_insight_advice_service(
                 "user_id": user_id,
                 "feature": feature_name,
                 "model": FAST,
-                "input_tokens": usage.get("input_tokens", 0),
-                "total_tokens": usage.get("total_tokens", 0),
+                "input_prompt": input_prompt_dump,  # New tracking column
+                "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
+                "total_tokens": total_tokens,
                 "status": "success"
             }
         )
+
+        logger.info(
+            f"SERVICE FINISHED: get_insight_advice_service | Success. Tokens: {total_tokens} | Insights Generated: {len(parsed_output.insights)}")
 
         # 5. Return the list of insights
         return MoodAdviceResponse(
@@ -108,5 +120,19 @@ async def get_insight_advice_service(
 
     except Exception as e:
         logger.exception(f"Multi-Insight Service Error | User: {user_id} | {str(e)}")
-        # ... (error logging task)
-        raise AppException(status_code=500, message="AI is reflecting on your moods. Try again soon.")
+
+        # Log failure to trace
+        await log_llm_event({
+            "request_id": request_id,
+            "user_id": user_id,
+            "feature": feature_name,
+            "model": FAST,
+            "input_prompt": input_prompt_dump,
+            "status": "failed",
+            "message": str(e)
+        })
+
+        raise AppException(
+            status_code=500,
+            message="AI is reflecting on your moods. Try again soon."
+        )

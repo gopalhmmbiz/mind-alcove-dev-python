@@ -37,6 +37,8 @@ async def generate_affirmations_service(
     feature_name = "affirmations"
     user_id = payload.user_id
 
+    logger.info(f"SERVICE START: generate_affirmations_service | User: {user_id} | Goal: {payload.user_goal}")
+
     # Prepare user message
     formatted_user_message = USER_MESSAGE_TEMPLATE.format(
         user_goal=payload.user_goal
@@ -47,7 +49,11 @@ async def generate_affirmations_service(
         HumanMessage(formatted_user_message),
     ]
 
+    # Create readable prompt for tracking
+    input_prompt_dump = "\n\n".join([f"[{msg.type.upper()}]: {msg.content}" for msg in messages])
+
     try:
+        logger.info(f"Invoking LLM for affirmations | Model: {FAST} | User: {user_id}")
         response = await _structured_llm.ainvoke(messages)
         parsed_output: Affirmations = response["parsed"]
         raw_message = response["raw"]
@@ -58,6 +64,7 @@ async def generate_affirmations_service(
 
         # Extract token usage
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
+        total_tokens = usage.get("total_tokens", 0)
 
         background_tasks.add_task(
             log_llm_event,
@@ -66,11 +73,14 @@ async def generate_affirmations_service(
                 "user_id": user_id,
                 "feature": feature_name,
                 "model": FAST,
+                "input_prompt": input_prompt_dump,
                 "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
-                "total_tokens": usage.get("total_tokens", 0),
+                "total_tokens": total_tokens,
                 "status": "success"
             }
         )
+
+        logger.info(f"SERVICE FINISHED: generate_affirmations_service | Success. Tokens: {total_tokens}")
 
         return AffirmationResponse(
             affirmations=[affirmation.text for affirmation in parsed_output.affirmations],
@@ -85,6 +95,7 @@ async def generate_affirmations_service(
             "user_id": user_id,
             "feature": feature_name,
             "model": FAST,
+            "input_prompt": input_prompt_dump, # New tracking column
             "status": "failed",
             "message": str(e)
         })

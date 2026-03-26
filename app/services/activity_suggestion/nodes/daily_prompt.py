@@ -181,35 +181,53 @@ async def generate_journal_prompt(state: RecommendationState) -> dict:
         HumanMessage(content=user_content)
     ]
 
+    # Create readable prompt for debugging
+    input_prompt_dump = "\n\n".join([f"[{msg.type.upper()}]: {msg.content}" for msg in messages])
+
     try:
         # 2. Execute LLM Call
-        logger.info(f"Invoking LLM for journal prompt generation | User: {user_id}")
+        logger.info(f"Invoking LLM for journal prompt generation | Model: {SMART} | User: {user_id}")
         response = await _structured_llm.ainvoke(messages)
         parsed_output: JournalPrompt = response["parsed"]
         raw_message = response["raw"]
 
-        if not parsed_output or not parsed_output.prompt:
-            logger.warning(f"Unusual: LLM returned empty prompt for User: {user_id}")
-            return {"journal_prompt": "How are you feeling in this moment?", "errors": ["Empty LLM output"]}
-
-        # 3. Extract Token Usage for Tracing
+        # 3. Extract Token Usage
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
         total_tokens = usage.get("total_tokens", 0)
 
+        # 4. VALIDATION: Log as failure if prompt is missing
+        if not parsed_output or not parsed_output.prompt:
+            logger.warning(f"Unusual: LLM returned empty prompt for User: {user_id}")
+
+            await log_llm_event({
+                "request_id": request_id,
+                "user_id": user_id,
+                "feature": feature_name,
+                "model": SMART,
+                "input_prompt": input_prompt_dump,
+                "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
+                "total_tokens": total_tokens,
+                "status": "failed",
+                "message": "LLM returned empty prompt string."
+            })
+
+            return {"journal_prompt": "How are you feeling in this moment?", "errors": ["Empty LLM output"]}
+
+        # 5. SUCCESS PATH
         await log_llm_event({
             "request_id": request_id,
             "user_id": user_id,
             "feature": feature_name,
             "model": SMART,
+            "input_prompt": input_prompt_dump,  # New tracking column
             "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
             "total_tokens": total_tokens,
             "status": "success"
         })
 
-        logger.info(
-            f"NODE FINISHED: generate_journal_prompt | Success. Tokens: {total_tokens} | Prompt: '{parsed_output.prompt[:50]}...'")
+        logger.info(f"NODE FINISHED: generate_journal_prompt | Success. Tokens: {total_tokens}")
 
-        # 4. Update State
+        # 6. Update State
         return {"journal_prompt": parsed_output.prompt}
 
     except Exception as e:
@@ -221,6 +239,7 @@ async def generate_journal_prompt(state: RecommendationState) -> dict:
             "user_id": user_id,
             "feature": feature_name,
             "model": SMART,
+            "input_prompt": input_prompt_dump,  # Ensure prompt is saved even on crash
             "status": "failed",
             "message": str(e)
         })

@@ -38,7 +38,7 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
     activities_csv_string = convert_to_csv(library)
 
     if not activities_csv_string:
-        logger.warning(f"Aborting AI call | User: {user_id} | Reason: Empty library.")
+        logger.error(f"Node Error: get_activity_suggestions | Aborting AI call. Reason: Empty Activity library. | User: {user_id} ")
         return {"errors": ["No eligible activities found."]}
 
     logger.info(f"Preparing prompt with {len(library)} activities for User {user_id}.")
@@ -60,9 +60,12 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
         HumanMessage(content=user_content)
     ]
 
+    # Capture the massive prompt (CSV Library + Profile) for debugging
+    input_prompt_dump = "\n\n".join([f"[{msg.type.upper()}]: {msg.content}" for msg in messages])
+
     try:
         # 2. Execute Async LLM Call
-        logger.info(f"Invoking LLM for activity selection (Model: {SMART})...")
+        logger.info(f"Invoking LLM for activity selection | Model: {SMART} | User: {user_id}")
         response = await _structured_llm.ainvoke(messages)
         parsed_output: DailyRoutine = response["parsed"]
         raw_message = response["raw"]
@@ -76,6 +79,7 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
             "user_id": user_id,
             "feature": feature_name,
             "model": SMART,
+            "input_prompt": input_prompt_dump, # New tracking column
             "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
             "total_tokens": total_tokens,
             "status": "success"
@@ -96,6 +100,7 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
             "user_id": user_id,
             "feature": feature_name,
             "model": SMART,
+            "input_prompt": input_prompt_dump, # Capture the prompt even on failure
             "status": "failed",
             "message": str(e)
         })

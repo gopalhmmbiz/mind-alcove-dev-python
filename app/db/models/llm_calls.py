@@ -23,6 +23,9 @@ class LLMCall(Base):
     feature: Mapped[str] = mapped_column(String(100), index=True)
     model: Mapped[str] = mapped_column(String(100))
 
+    # Input prompt
+    input_prompt: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Token Metrics
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     total_tokens: Mapped[int] = mapped_column(Integer, default=0)

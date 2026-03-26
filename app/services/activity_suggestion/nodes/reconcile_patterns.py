@@ -118,28 +118,33 @@ async def reconcile_patterns(state: RecommendationState) -> dict:
         ))
     ]
 
+    # Capture full prompt for tracing (Old Profile + New Logs)
+    input_prompt_dump = "\n\n".join([f"[{msg.type.upper()}]: {msg.content}" for msg in messages])
+
     try:
         # 3. Invoke LLM
-        logger.info(f"Invoking LLM for profiling reconciliation for User {user_id}...")
+        logger.info(f"Invoking LLM for profiling reconciliation | Model: {SMART} | User: {user_id}")
         response = await _structured_llm.ainvoke(messages)
         parsed_output: UserDynamicProfile = response["parsed"]
         raw_message = response["raw"]
 
         # 4. Extract Token Usage for Tracing
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
+        total_tokens = usage.get("total_tokens", 0)
 
         await log_llm_event({
             "request_id": request_id,
             "user_id": user_id,
             "feature": feature_name,
             "model": SMART,
+            "input_prompt": input_prompt_dump, # New tracking column
             "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
-            "total_tokens": usage.get("total_tokens", 0),
+            "total_tokens": total_tokens,
             "status": "success"
         })
 
         logger.info(
-            f"NODE FINISHED: reconcile_patterns | Profile updated with {len(parsed_output.observations)} observations.")
+            f"NODE FINISHED: reconcile_patterns | Profile updated with {len(parsed_output.observations)} observations. Tokens: {total_tokens}")
 
         # 5. Update State with the new reconciled profile
         return {"user_profile": parsed_output}
@@ -152,6 +157,7 @@ async def reconcile_patterns(state: RecommendationState) -> dict:
             "user_id": user_id,
             "feature": feature_name,
             "model": SMART,
+            "input_prompt": input_prompt_dump, # Ensure we capture the "why" of the failure
             "status": "failed",
             "message": str(e)
         })
