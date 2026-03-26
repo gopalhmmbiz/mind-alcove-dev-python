@@ -1,15 +1,19 @@
+from loguru import logger
 from app.services.activity_suggestion.state import RecommendationState
 
+
 async def process_inputs(state: RecommendationState) -> dict:
-    core_moods = ['excited', 'happy', 'loved', 'okay', 'chill', 'bored', 'sad', 'angry', 'stressed']
-    if not state['user_mood'] or state['user_mood'].strip().lower() not in core_moods:
+    logger.info(f"NODE START: process_inputs | User: {state.get('user_id')}")
+
+    if not state.get('user_mood'):
         user_mood = 'Excited'
+        logger.warning(f"Invalid/Missing mood: {state.get('user_mood')}. Defaulting to 'Excited'.")
     else:
         user_mood = state['user_mood'].strip().title()
-    core_goals = ["calm", "focus", "resilience", "sleep", "happiness", "support", "heal", "awareness", "motivation"]
 
-    if not state['user_goal'] or state['user_goal'].strip().lower() not in core_goals:
+    if not state.get('user_goal'):
         user_goal = 'Calm, Awareness, Happiness'
+        logger.warning(f"Invalid/Missing goal: {state.get('user_goal')}. Defaulting to Calm, Awareness, Happiness.")
     else:
         user_goal = state['user_goal'].strip().title()
 
@@ -21,10 +25,13 @@ async def process_inputs(state: RecommendationState) -> dict:
         '>15': 'Moderate (15-30 min)',
         '>30': 'Extended (30+ min)'
     }
-    if not state["routine_length"] or state['routine_length'].strip() not in routine_length_mapping:
-        routine_length = "Quick (5–10 min)"
+    if not state.get("routine_length") or state['routine_length'].strip() not in routine_length_mapping:
+        routine_length = "Moderate (15-30 min)"
+        logger.info(f"Defaulting routine length to 'Moderate (15-30 min)'.")
     else:
         routine_length = routine_length_mapping[state['routine_length'].strip()]
+
+    logger.info(f"NODE FINISHED: process_inputs | Mood: {user_mood}, Goal: {user_goal}, Length: {routine_length}")
 
     return {
         "user_mood": user_mood,

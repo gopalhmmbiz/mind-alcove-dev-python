@@ -1,4 +1,5 @@
 import json
+import random
 import re
 from datetime import datetime, timezone, timedelta
 
@@ -38,9 +39,10 @@ def generate_activity_key(activity_details: dict) -> str:
 
 async def get_activity_library(state: RecommendationState) -> dict:
     """
-    Asynchronously fetches the activity library from the Laravel storage,
+    Asynchronously fetches the activity library from the Laravel service,
     generates unique keys for each activity, and deduplicates the list.
     """
+    logger.info(f"NODE START: get_activity_library | User: {state.get('user_id')}")
     url = f'{settings.laravel_base_url}/storage/ai-sync/ai-sync.json'
 
     async with httpx.AsyncClient() as client:
@@ -53,15 +55,19 @@ async def get_activity_library(state: RecommendationState) -> dict:
             main_items = data.get("mainItems", [])
 
             if not main_items:
-                logger.error(f"Activity sync successful but 'mainItems' is missing or empty at {url}")
+                logger.error(f"Activity list fetch successful but 'mainItems' is missing or empty at {url}")
                 raise AppException(
                     status_code=500,
-                    message="Activity list is empty"
+                    message="Activity list is empty."
                 )
 
+            logger.info(f"Fetched {len(main_items)} raw items from library sync.")
+
             # Filtering non-premium activities
-            if not state['is_premium']:
+            if not state.get('is_premium', False):
+                initial_count = len(main_items)
                 main_items = [activity for activity in main_items if not activity.get('is_premium', False)]
+                logger.info(f"Non-premium user: Filtered out {initial_count - len(main_items)} premium activities.")
 
             store = set()
             unique_activity_library = []
@@ -78,6 +84,7 @@ async def get_activity_library(state: RecommendationState) -> dict:
                     logger.warning(
                         f"Duplicate activity found: {activity_key}. Skipping ID: {activity_details.get('id')}")
 
+            logger.info(f"NODE FINISHED: get_activity_library | Total Unique Activities: {len(unique_activity_library)}")
             return {
                 'activity_library': unique_activity_library
             }
@@ -86,7 +93,7 @@ async def get_activity_library(state: RecommendationState) -> dict:
             logger.error(f"HTTP {e.response.status_code} error fetching library: {url}")
             raise AppException(
                 status_code=e.response.status_code,
-                message=f"Sync error: {e.response.status_code}"
+                message=f"Activity library sync error: {e.response.status_code}"
             )
         except Exception as e:
             # logger.exception automatically captures the full stack trace for debugging
@@ -103,6 +110,8 @@ async def fetch_suggestion_history(state: RecommendationState) -> dict:
     Stores the full objects in the 'suggestion_history' state key for downstream processing.
     """
     user_id = state.get("user_id")
+    logger.info(f"NODE START: fetch_suggestion_history | User: {user_id}")
+
     lookback_date = datetime.now(timezone.utc) - timedelta(days=7)
 
     async with AsyncSessionLocal() as db:
@@ -117,17 +126,18 @@ async def fetch_suggestion_history(state: RecommendationState) -> dict:
 
             result = await db.execute(query)
             # Scalars used to get the model instances directly
-            logs = result.scalars().all()
+            logs = list(result.scalars().all())
 
             if not logs:
                 logger.warning(f"No suggestion history found for user_id: {user_id} in the last 7 days.")
-
                 return {
                     "suggestion_history": []
                 }
 
+            logger.info(
+                f"NODE FINISHED: fetch_suggestion_history | Successfully retrieved {len(logs)} days of history.")
             return {
-                "suggestion_history": list(logs)
+                "suggestion_history": logs
             }
 
         except Exception as e:
@@ -135,7 +145,8 @@ async def fetch_suggestion_history(state: RecommendationState) -> dict:
             logger.exception(f"Failed to fetch suggestion history for user {user_id}: {str(e)}")
             # Return an empty list to prevent the graph from breaking in subsequent nodes
             return {
-                "suggestion_history": []
+                "suggestion_history": [],
+                "errors": [str(e)]
             }
 
 
@@ -143,11 +154,16 @@ async def filter_cooldown_activities(state: RecommendationState) -> dict:
     """
     Uses 7-day history to filter activities currently on cooldown.
     """
+    user_id = state.get("user_id")
+    logger.info(f"NODE START: filter_cooldown_activities | User: {user_id}")
+
     now = datetime.now(timezone.utc)
     suggestion_history = state.get("suggestion_history", [])
     activity_library = state.get("activity_library", [])
 
     if not suggestion_history:
+        logger.info(
+            f"NODE SKIPPED: filter_cooldown_activities | Cooldown skip due to no suggestion history. Returning Activity library as is.")
         return {"activity_library": activity_library}
 
     slot_offsets = {"morning": 8, "afternoon": 14, "evening": 20}
@@ -166,6 +182,7 @@ async def filter_cooldown_activities(state: RecommendationState) -> dict:
             if isinstance(suggested_data, str):
                 suggested_data = json.loads(suggested_data)
         except Exception:
+            logger.warning(f"Could not parse one of suggested activity routine data. | Date: {log.date} | Data: {suggested_raw}")
             continue
 
         for slot, offset in slot_offsets.items():
@@ -197,6 +214,25 @@ async def filter_cooldown_activities(state: RecommendationState) -> dict:
 
         filtered_library.append(activity)
 
+    if len(filtered_library) < 15:
+        logger.warning(f"Shortage: Only {len(filtered_library)} items passed cooldown. Refilling randomly.")
+
+        # Set for O(1) lookup speed
+        existing_keys = {act.get("activity_key") for act in filtered_library}
+        iter_count = 0
+
+        while len(filtered_library) < 30 and iter_count < 100:
+            iter_count += 1
+            activity = random.choice(activity_library)
+            if activity.get("activity_key") not in existing_keys:
+                filtered_library.append(activity)
+                existing_keys.add(activity.get("activity_key"))
+
+        logger.info(f"Refill complete. Added {len(filtered_library) - (len(existing_keys) - iter_count)} items.")
+
+    logger.info(
+        f"NODE FINISHED: filter_cooldown_activities | Filtered out {len(activity_library) - len(filtered_library)} items. {len(filtered_library)} remaining.")
+
     return {"activity_library": filtered_library}
 
 
@@ -205,12 +241,15 @@ def format_activity_list(state: "RecommendationState") -> dict:
     Final formatting of the filtered library for the LLM.
     Assigns temporary IDs and creates a mapping_dict for post-processing reconstruction.
     """
+    user_id = state.get("user_id")
+    logger.info(f"NODE START: format_activity_list | User: {user_id}")
+
     filtered_library = state.get('activity_library', [])
     formatted_list = []
     mapping_dict = {}
 
     if not filtered_library:
-        logger.warning(f"No activities remaining in library for user {state.get('user_id')} after filtering.")
+        logger.warning(f"User: {user_id} | No activities remaining in library after filtering.")
         return {
             'activity_library': [],
             'mapping_dict': {}
@@ -239,6 +278,8 @@ def format_activity_list(state: "RecommendationState") -> dict:
         # 2. Map the temp_id to the full original object (including the activity_key)
         # This allows the final node to reconstruct the full JSON for the frontend
         mapping_dict[temp_id] = item
+
+    logger.info(f"NODE FINISHED: format_activity_list | Prepared {len(formatted_list)} items for LLM.")
 
     return {
         'activity_library': formatted_list,

@@ -28,22 +28,31 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
     and library availability, tracking tokens via log_llm_event.
     """
     user_id = state.get("user_id")
+    logger.info(f"NODE START: get_activity_suggestions | User: {user_id}")
+
     request_id = request_id_context.get()  # Accessing the context variable
     feature_name = "activity_suggestion"
 
     # 1. Prepare Data
-    activities_csv_string = convert_to_csv(state.get('activity_library', []))
+    library = state.get('activity_library', [])
+    activities_csv_string = convert_to_csv(library)
 
     if not activities_csv_string:
-        logger.warning(f"Aborting AI call | User: {user_id} | Reason: Empty filtered library.")
-        return {"errors": "No eligible activities found."}
+        logger.warning(f"Aborting AI call | User: {user_id} | Reason: Empty library.")
+        return {"errors": ["No eligible activities found."]}
+
+    logger.info(f"Preparing prompt with {len(library)} activities for User {user_id}.")
+
+    # Use .get() to avoid potential KeyErrors if state wasn't fully initialized
+    user_profile = state.get("user_profile")
+    profile_json = user_profile.model_dump_json(indent=2) if user_profile else "{}"
 
     system_content = SYSTEM_MESSAGE.format(activity_library=activities_csv_string)
     user_content = USER_MESSAGE.format(
-        user_profile=state["user_profile"].model_dump_json(indent=2),
-        user_goal=state["user_goal"],
-        user_mood=state["user_mood"],
-        routine_length=state["routine_length"],
+        user_profile=profile_json,
+        user_goal=state.get("user_goal", "General Wellness"),
+        user_mood=state.get("user_mood", "Okay"),
+        routine_length=state.get("routine_length", "Moderate"),
     )
 
     messages = [
@@ -53,12 +62,14 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
 
     try:
         # 2. Execute Async LLM Call
+        logger.info(f"Invoking LLM for activity selection (Model: {SMART})...")
         response = await _structured_llm.ainvoke(messages)
         parsed_output: DailyRoutine = response["parsed"]
         raw_message = response["raw"]
 
         # 3. Extract Token Usage for Tracing
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
+        total_tokens = usage.get("total_tokens", 0)
 
         await log_llm_event({
             "request_id": request_id,
@@ -66,18 +77,19 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
             "feature": feature_name,
             "model": SMART,
             "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
-            "total_tokens": usage.get("total_tokens", 0),
+            "total_tokens": total_tokens,
             "status": "success"
         })
 
+        logger.info(f"NODE FINISHED: get_activity_suggestions | Success. Tokens: {total_tokens}")
+
         return {
-            "activity_routine": parsed_output,
-            "tokens_used": usage.get("total_tokens", 0)
+            "activity_routine": parsed_output
         }
 
     except Exception as e:
         # CRITICAL: Log failure for debugging
-        logger.exception(f"Node Error: get_activity_suggestions | User: {user_id}")
+        logger.exception(f"Node Error: get_activity_suggestions | User: {user_id} | {str(e)}")
 
         await log_llm_event({
             "request_id": request_id,
@@ -88,4 +100,4 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
             "message": str(e)
         })
 
-        return {"errors": f"AI selection error: {str(e)}"}
+        return {"errors": [f"AI selection error: {str(e)}"]}

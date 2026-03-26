@@ -26,6 +26,7 @@ async def get_recent_journals(state: RecommendationState) -> dict:
     Order: Latest -> Oldest.
     """
     user_id = state.get('user_id')
+    logger.info(f"NODE START: get_recent_journals | User: {user_id}")
 
     async with AsyncSessionLocal() as db:
         try:
@@ -48,19 +49,23 @@ async def get_recent_journals(state: RecommendationState) -> dict:
 
             if not rows:
                 logger.info(f"Note: No recent journals found for User: {user_id} in the last {JOURNAL_LOOKUP_DAYS} days.")
+            else:
+                logger.info(f"Successfully retrieved {len(rows)} journal entries for User: {user_id}.")
 
+            logger.info(f"NODE FINISHED: get_recent_journals | User: {user_id}")
             return {"prev_journals": [dict(row) for row in rows]}
 
         except SQLAlchemyError as e:
             # CRITICAL: Captures DB connection or syntax issues on VPS
             logger.exception(f"Database Error: Failed to fetch recent journals for User: {user_id}")
             await db.rollback()
-            return {"prev_journals": [], "errors": "DB failure"}
+            return {"prev_journals": [], "errors": ["DB failure"]}
 
         except Exception as e:
             # CRITICAL: Captures logic or mapping failures
             logger.exception(f"Unexpected Error in get_recent_journals | User: {user_id}")
-            return {"prev_journals": [], "errors": "Unknown failure"}
+            return {"prev_journals": [], "errors": ["Unknown failure"]}
+
 
 def format_journals_for_llm(state: RecommendationState) -> dict:
     """
@@ -69,35 +74,37 @@ def format_journals_for_llm(state: RecommendationState) -> dict:
     - Skips all-null entries ({"q1": null})
     - Maps valid answers to questions with "Journal Entry" fallback.
     """
-    formatted_journals = []
     user_id = state.get('user_id')
+    logger.info(f"NODE START: format_journals_for_llm | User: {user_id}")
+
+    formatted_journals = []
+    skipped_mood_entries = 0
+    skipped_empty_entries = 0
 
     for entry in state.get("prev_journals", []):
         raw_post = entry.get("journal_post")
         raw_ques = entry.get("questions")
 
-        # We don't check 'if not raw_post' because [] is falsy but we need to parse it
         try:
             # 1. Parse the strings into Python objects
-            # If columns are NULL in DB, we treat them as empty dicts
             post_data = json.loads(raw_post) if raw_post else {}
             ques_data = json.loads(raw_ques) if raw_ques else {}
 
             # 2. Logic: If post_data is a list (like []), it's a mood entry -> SKIP
             if not isinstance(post_data, dict):
+                skipped_mood_entries += 1
                 continue
 
             # 3. Extract legit answers and pair with questions
             daily_lines = []
             for key, answer in post_data.items():
-                # Check if the answer actually contains text
                 if answer is not None and str(answer).strip().lower() != "null":
-                    # Pair with question or fallback
                     question = ques_data.get(key) or "Journal Entry"
                     daily_lines.append(f"- {question}: {answer}")
 
-            # 4. If no legit answers were found (e.g., all were null), SKIP this day
+            # 4. If no legit answers were found, SKIP this day
             if not daily_lines:
+                skipped_empty_entries += 1
                 continue
 
             # 5. Store valid day
@@ -107,7 +114,6 @@ def format_journals_for_llm(state: RecommendationState) -> dict:
             })
 
         except (json.JSONDecodeError, TypeError):
-            # Capture corrupted JSON strings in the DB
             logger.exception(f"Format Error: Skipping corrupted journal entry for User: {user_id}")
             continue
 
@@ -118,8 +124,6 @@ def format_journals_for_llm(state: RecommendationState) -> dict:
     for entry in formatted_journals:
         block = f"### Date: {entry['created_at']}\n{entry['journal_post']}"
 
-        # Check if adding this block exceeds the 10k limit
-        # Adding +4 for the separator "\n\n---\n\n"
         if current_length + len(block) + 10 > CHARACTER_LIMIT:
             logger.warning(f"Unusual: Journal history capped at {CHARACTER_LIMIT} chars for User: {user_id}")
             break
@@ -127,7 +131,12 @@ def format_journals_for_llm(state: RecommendationState) -> dict:
         journal_blocks.append(block)
         current_length += len(block)
 
-    final_str = "\n\n---\n\n".join(journal_blocks) if journal_blocks else "No recent journal history found for the last 7 days."
+    final_str = "\n\n---\n\n".join(
+        journal_blocks) if journal_blocks else "No recent journal history found for the last 7 days."
+
+    logger.info(
+        f"Journal Formatting Summary | Valid Days: {len(journal_blocks)} | Skipped Moods: {skipped_mood_entries} | Skipped Empty: {skipped_empty_entries}")
+    logger.info(f"NODE FINISHED: format_journals_for_llm | User: {user_id}")
 
     return {
         "prev_journals": formatted_journals,
@@ -153,13 +162,18 @@ async def generate_journal_prompt(state: RecommendationState) -> dict:
     Incorporates logging, LLM tracing, and character limits.
     """
     user_id = state.get("user_id")
+    logger.info(f"NODE START: generate_journal_prompt | User: {user_id}")
+
     request_id = request_id_context.get()
     feature_name = "prompt_of_the_day"
 
     # 1. Prepare Messages
+    user_mood = state.get("user_mood", "Okay")
+    journal_str = state.get("formatted_journal_str", "No recent history.")
+
     user_content = USER_MESSAGE.format(
-        user_mood=state.get("user_mood", "Okay"),
-        formatted_journal_str=state.get("formatted_journal_str", "No recent history.")
+        user_mood=user_mood,
+        formatted_journal_str=journal_str
     )
 
     messages = [
@@ -169,16 +183,18 @@ async def generate_journal_prompt(state: RecommendationState) -> dict:
 
     try:
         # 2. Execute LLM Call
+        logger.info(f"Invoking LLM for journal prompt generation | User: {user_id}")
         response = await _structured_llm.ainvoke(messages)
         parsed_output: JournalPrompt = response["parsed"]
         raw_message = response["raw"]
 
         if not parsed_output or not parsed_output.prompt:
             logger.warning(f"Unusual: LLM returned empty prompt for User: {user_id}")
-            return {"journal_prompt": "How are you feeling in this moment?", "errors": "Empty LLM output"}
+            return {"journal_prompt": "How are you feeling in this moment?", "errors": ["Empty LLM output"]}
 
         # 3. Extract Token Usage for Tracing
         usage = getattr(raw_message, "usage_metadata", {}) or raw_message.response_metadata.get("token_usage", {})
+        total_tokens = usage.get("total_tokens", 0)
 
         await log_llm_event({
             "request_id": request_id,
@@ -186,16 +202,19 @@ async def generate_journal_prompt(state: RecommendationState) -> dict:
             "feature": feature_name,
             "model": SMART,
             "input_tokens": usage.get("input_tokens", usage.get("prompt_tokens", 0)),
-            "total_tokens": usage.get("total_tokens", 0),
+            "total_tokens": total_tokens,
             "status": "success"
         })
+
+        logger.info(
+            f"NODE FINISHED: generate_journal_prompt | Success. Tokens: {total_tokens} | Prompt: '{parsed_output.prompt[:50]}...'")
 
         # 4. Update State
         return {"journal_prompt": parsed_output.prompt}
 
     except Exception as e:
         # CRITICAL: Log failure for debugging
-        logger.exception(f"Node Error: generate_journal_prompt | User: {user_id}")
+        logger.exception(f"Node Error: generate_journal_prompt | User: {user_id} | {str(e)}")
 
         await log_llm_event({
             "request_id": request_id,
@@ -206,4 +225,4 @@ async def generate_journal_prompt(state: RecommendationState) -> dict:
             "message": str(e)
         })
 
-        return {"journal_prompt": "Take a moment to write your inner thoughts.", "errors": str(e)}
+        return {"journal_prompt": "Take a moment to write your inner thoughts.", "errors": [str(e)]}

@@ -16,7 +16,8 @@ class RecommendationState(TypedDict, total=False):
     user_mood: str
     user_goal: str
     routine_length: str
-    user_profile: UserDynamicProfile
+    user_profile: UserDynamicProfile | None
+    formatted_activity_logs: str | None
     activity_library: List[Dict[str, Any]]
     suggestion_history: List[ActivityAiLog]
     mapping_dict: Dict[str, Any]
