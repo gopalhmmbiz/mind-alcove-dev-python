@@ -16,25 +16,19 @@ from app.services.activity_suggestion.state import RecommendationState
 
 def generate_activity_key(activity_details: dict) -> str:
     """
-    Generates a unique key: formattedparentname__name
-    Removes all special symbols, whitespaces, and converts to lowercase.
-    Example: "Guided Breathing" + "Start Your Morning!"
-    Result: "guidedbreathing__startyourmorning"
+    Generates a unique key: type__id
+    Example: type='guidedbreathing', id=38
+    Result: "guidedbreathing__38"
     """
-    # Handle potential None values from the DB/Library
-    p_name = str(activity_details.get("parent_category_name", "unknown"))
-    a_name = str(activity_details.get("name", "unknown"))
+    # 1. Get the type and id (defaults to 'unknown' and '0' if missing)
+    raw_type = str(activity_details.get("type", "unknown")).lower()
+    raw_id = str(activity_details.get("id", "0"))
 
-    # 1. Strip all non-alphanumeric characters and whitespaces from parent
-    # 2. Lowercase the result
-    clean_parent = re.sub(r'[^a-zA-Z0-9]', '', p_name).lower()
+    # 2. Clean the type (remove non-alphanumeric chars/whitespaces)
+    # clean_type = re.sub(r'[^a-zA-Z0-9]', '', raw_type)
 
-    # 3. Strip all non-alphanumeric characters and whitespaces from activity name
-    # 4. Lowercase the result
-    clean_activity = re.sub(r'[^a-zA-Z0-9]', '', a_name).lower()
-
-    # Return the merged key
-    return f"{clean_parent}__{clean_activity}"
+    # 3. Return the stable key
+    return f"{raw_type}__{raw_id}"
 
 
 async def get_activity_library(state: RecommendationState) -> dict:
