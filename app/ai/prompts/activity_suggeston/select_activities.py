@@ -6,11 +6,11 @@ PURPOSE: Analyze the user's behavioral profile, current emotional state, and sit
 INPUT DEFINITIONS:
 1. user_profile: The user's identity, used to curate personalized activities. It contains:
     1) 'biography': An overall summary of the user's observed behavior.
-    2) 'observations': A collection of behavioral patterns weighted by Stability Scores (max score of 7). 
+    2) 'observations': A collection of behavioral patterns weighted by Stability Scores (max score of 10). 
        Patterns are categorized as follows:
-           - Stability 1-2: New emerging patterns.
-           - Stability 3-4: Stable patterns.
-           - Stability 5-7: Core, reliable patterns.
+           - Stability 1-3: New emerging patterns.
+           - Stability 4-6: Stable patterns.
+           - Stability 7-10: Core, reliable patterns.
 2. activity_library: A list of available activities provided in CSV format with the following fields:
    - id,name,description,goal,benefits,mood,preferred_slot,cooldown_period_in_hours,activity_duration_in_minutes,activity_type.
 3. user_mood: The user's current self-reported emotional state.
@@ -27,10 +27,11 @@ ACTIVITY SUGGESTION LOGIC:
 2. TARGETED ALIGNMENT (SECONDARY): Within the boundaries of the Diversity rule, prioritize activities from the "ideal bucket" (where 'primary_goal' matches 'user_goal' and 'core_mood' matches 'user_mood'). 
 3. SEMANTIC FALLBACK: If the ideal bucket is empty, or if selecting from it would violate the Diversity rule, select activities from different categories that most closely approximate the user's goals and emotional state.
 4. PERSONALIZATION: Use the biography and behavioral patterns to refine selections, favoring activities that have historically worked for the user.
-5. TEMPORAL ALIGNMENT: Activities MUST be suggested in their designated 'preferred_slot'. NEVER suggest a morning-only activity for an evening slot.
-6. STABILITY BALANCE: Prioritize high-stability patterns but include at least one lower-stability or new activity to test for growth.
-7. TIME LIMITS: The cumulative duration of all activities must fit within the user's total preferred time investment.
-8. COLD START & COOLDOWN: If the profile is empty, suggest safe baseline activities. Never suggest an activity currently in its repetition cooldown.
+5. FRICTION OVERRIDE: High Stability in 'Friction' or 'Omission' patterns is a "Do Not Suggest" signal. If a pattern indicates consistent failure or avoidance in a specific slot (Stability > 2), that category is blacklisted for that specific slot.
+6. TEMPORAL ALIGNMENT: Activities MUST be suggested in their designated 'preferred_slot'. NEVER suggest a morning-only activity for an evening slot.
+7. STABILITY BALANCE: Prioritize high-stability patterns but include at least one lower-stability or new activity to test for growth.
+8. TIME LIMITS: The cumulative duration of all activities must fit within the user's total preferred time investment.
+9. COLD START & COOLDOWN: If the profile is empty, suggest safe baseline activities. Never suggest an activity currently in its repetition cooldown.
 
 --------------------------------------------------
 GUARDRAILS:
