@@ -3,7 +3,7 @@ name: Deploy Python API to Dev
 on:
   push:
     branches:
-      - dev
+      - main
 
 jobs:
   deploy:
@@ -20,7 +20,7 @@ jobs:
             cd /var/www/python-api
 
             # Pull latest code
-            git pull origin dev
+            git pull
 
             # Rebuild and restart container
             docker compose -f /var/www/python-api/docker-compose.yml down
