@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Deploy Python API to Dev
 
 on:
   push:
@@ -10,19 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /var/www/python-api
 
-    - name: Deploy to VPS
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.VPS_HOST }}  # Your VPS IP address or domain
-        username: ${{ secrets.SSH_USERNAME }}  # SSH username for the VPS
-        key: ${{ secrets.SSH_PRIVATE_KEY }}  # SSH private key stored in secrets
-        port: 22  # SSH port, usually 22
-        script: |
-          cd /home/ubuntu/mindalcove-python-backend
-          git pull origin dev  # Pull the latest code from the repository
-          cd /home/ubuntu/mindalcove-python-backend
-          docker compose down
-          docker compose up -d --build
+            # Pull latest code
+            git pull origin dev
+
+            # Rebuild and restart container
+            docker compose -f /var/www/python-api/docker-compose.yml down
+            docker compose -f /var/www/python-api/docker-compose.yml build --no-cache
+            docker compose -f /var/www/python-api/docker-compose.yml up -d
+
+            echo "✅ Python API deployed successfully"
