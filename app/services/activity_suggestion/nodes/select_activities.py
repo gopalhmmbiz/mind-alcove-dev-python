@@ -16,7 +16,7 @@ from app.services.llm_calls_trace import log_llm_event
 _llm = init_chat_model(
     SMART,
     temperature=0,
-    timeout=60,
+    timeout=120,
     max_retries=3
 )
 _structured_llm = _llm.with_structured_output(DailyRoutine, include_raw=True)
