@@ -18,16 +18,16 @@ async def process_inputs(state: RecommendationState) -> dict:
         user_goal = state['user_goal'].strip().title()
 
     routine_length_mapping = {
-        '<5': 'Quick (5–10 min)',
-        '5-10': 'Quick (5–10 min)',
-        '10-15': 'Quick (5–10 min)',
-        '15-30': 'Moderate (15-30 min)',
-        '>15': 'Moderate (15-30 min)',
-        '>30': 'Extended (30+ min)'
+        '<5': 'Quick',
+        '5-10': 'Quick',
+        '10-15': 'Moderate',
+        '15-30': 'Moderate',
+        '>15': 'Extended',
+        '>30': 'Extended'
     }
     if not state.get("routine_length") or state['routine_length'].strip() not in routine_length_mapping:
-        routine_length = "Moderate (15-30 min)"
-        logger.info(f"Defaulting routine length to 'Moderate (15-30 min)'.")
+        routine_length = "Moderate"
+        logger.info(f"Defaulting routine length to 'Moderate'.")
     else:
         routine_length = routine_length_mapping[state['routine_length'].strip()]
 
