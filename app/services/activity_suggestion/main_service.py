@@ -111,3 +111,4 @@ async def generate_activity_routine(data: ActivitySuggestionRequest,
     #             )
     #     slot_list.append(JournalPrompt(prompts=["How about journaling your recent achievements?", "Write about your recent learnings."]))
     #     daily_routine[slot] = slot_list
+
