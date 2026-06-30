@@ -4,6 +4,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 
 from app.ai.models import SMART
 from app.ai.structured_outputs.activity_suggestion.select_activities import DailyRoutine
+from app.ai.structured_outputs.activity_suggestion.reconcile_patterns import UserDynamicProfile
 from app.ai.prompts.activity_suggeston.select_activities import SYSTEM_MESSAGE, USER_MESSAGE
 from app.core.context import request_id_context
 from app.core.util import convert_to_csv
@@ -43,9 +44,12 @@ async def get_activity_suggestions(state: RecommendationState) -> dict:
 
     logger.info(f"Preparing prompt with {len(library)} activities for User {user_id}.")
 
-    # Use .get() to avoid potential KeyErrors if state wasn't fully initialized
-    user_profile = state.get("user_profile")
-    profile_json = user_profile.model_dump_json(indent=2) if user_profile else "{}"
+    # Replaced profile lookup with generic profile since reconciliation is disabled
+    user_profile = UserDynamicProfile(
+        biography="User profile is unavailable. Treat user as fresh user.",
+        observations=[]
+    )
+    profile_json = user_profile.model_dump_json(indent=2)
 
     system_content = SYSTEM_MESSAGE.format(activity_library=activities_csv_string)
     user_content = USER_MESSAGE.format(

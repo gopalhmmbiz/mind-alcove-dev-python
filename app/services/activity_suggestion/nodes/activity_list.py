@@ -57,11 +57,7 @@ async def get_activity_library(state: RecommendationState) -> dict:
 
             logger.info(f"Fetched {len(main_items)} raw items from library sync.")
 
-            # Filtering non-premium activities
-            if not state.get('is_premium', False):
-                initial_count = len(main_items)
-                main_items = [activity for activity in main_items if not activity.get('is_premium', False)]
-                logger.info(f"Non-premium user: Filtered out {initial_count - len(main_items)} premium activities.")
+            # Premium filtering removed as per requirements so free users can see premium activities (with lock icon).
 
             store = set()
             unique_activity_library = []

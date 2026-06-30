@@ -3,12 +3,14 @@ from app.services.activity_suggestion.state import RecommendationState
 
 # Import all nodes
 from app.services.activity_suggestion.nodes.select_activities import get_activity_suggestions
-from app.services.activity_suggestion.nodes.reconcile_patterns import (
-    get_user_patterns,
-    format_previous_activity_logs,
-    reconcile_patterns,
-    persist_user_patterns
-)
+# Profiling nodes commented out to disable reconciliation
+# from app.services.activity_suggestion.nodes.reconcile_patterns import (
+#     get_user_patterns,
+#     format_previous_activity_logs,
+#     reconcile_patterns,
+#     persist_user_patterns
+# )
+from app.services.activity_suggestion.nodes.verify_routine import verify_routine
 from app.services.activity_suggestion.nodes.process_inputs import process_inputs
 from app.services.activity_suggestion.nodes.activity_list import (
     get_activity_library,
@@ -36,23 +38,21 @@ builder.add_node('fetch_suggestion_history', fetch_suggestion_history) #done
 builder.add_node('get_activity_library', get_activity_library) #done
 builder.add_node('filter_cooldown_activities', filter_cooldown_activities) #done
 builder.add_node('format_activity_list', format_activity_list) #done
-builder.add_node('get_user_patterns', get_user_patterns) #done
-builder.add_node('format_previous_activity_logs', format_previous_activity_logs) #done
-builder.add_node('reconcile_patterns', reconcile_patterns) # done
-builder.add_node('persist_user_patterns', persist_user_patterns)
+# builder.add_node('get_user_patterns', get_user_patterns) #done
+# builder.add_node('format_previous_activity_logs', format_previous_activity_logs) #done
+# builder.add_node('reconcile_patterns', reconcile_patterns) # done
+# builder.add_node('persist_user_patterns', persist_user_patterns)
 builder.add_node('select_activities', get_activity_suggestions)
+builder.add_node('verify_routine', verify_routine)
 
-# The Chain: Input -> History -> Library -> Cooldown -> Mapping -> Patterns -> Reconcile -> Select
+# The Chain: Input -> History -> Library -> Cooldown -> Mapping -> Select -> Verify
 builder.add_edge('process_inputs', 'fetch_suggestion_history')
 builder.add_edge('fetch_suggestion_history', 'get_activity_library')
 builder.add_edge('get_activity_library', 'filter_cooldown_activities')
 builder.add_edge('filter_cooldown_activities', 'format_activity_list')
-builder.add_edge('format_activity_list', 'get_user_patterns')
-builder.add_edge('get_user_patterns', 'format_previous_activity_logs')
-builder.add_edge('format_previous_activity_logs', 'reconcile_patterns')
-builder.add_edge('reconcile_patterns', 'persist_user_patterns')
-builder.add_edge('persist_user_patterns', 'select_activities')
-builder.add_edge('select_activities', END)
+builder.add_edge('format_activity_list', 'select_activities')
+builder.add_edge('select_activities', 'verify_routine')
+builder.add_edge('verify_routine', END)
 
 ######################################
 # LANE 2: Prompt of the Day (Linear)   # currently not in use due to some business requirement changes.
